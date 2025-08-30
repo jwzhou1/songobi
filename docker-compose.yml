@@ -1,0 +1,229 @@
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Songo BI Docker Compose Configuration
+# For development environments
+
+x-songo-user: &songo-user root
+x-songo-volumes: &songo-volumes
+  - ./docker:/app/docker
+  - ./songo-bi:/app/songo-bi
+  - ./songo-bi-frontend:/app/songo-bi-frontend
+  - songo_home:/app/songo_home
+  - ./tests:/app/tests
+
+x-common-build: &common-build
+  context: .
+  target: ${SONGO_BUILD_TARGET:-dev}
+  cache_from:
+    - songo-bi/cache:3.10-slim
+  args:
+    DEV_MODE: "true"
+    BUILD_TRANSLATIONS: ${BUILD_TRANSLATIONS:-false}
+
+services:
+  nginx:
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    image: nginx:latest
+    container_name: songo_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+
+  redis:
+    image: redis:7
+    container_name: songo_cache
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis:/data
+
+  db:
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    image: postgres:16
+    container_name: songo_db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_home:/var/lib/postgresql/data
+      - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_DB: songo_bi
+      POSTGRES_USER: songo
+      POSTGRES_PASSWORD: songo_password
+
+  songo-bi:
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    build:
+      <<: *common-build
+    container_name: songo_app
+    command: ["/app/docker/docker-bootstrap.sh", "app"]
+    restart: unless-stopped
+    ports:
+      - 8088:8088
+      - 8081:8081
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    user: *songo-user
+    depends_on:
+      songo-init:
+        condition: service_completed_successfully
+    volumes: *songo-volumes
+
+  songo-websocket:
+    container_name: songo_websocket
+    build: ./songo-bi-websocket
+    ports:
+      - 8080:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    volumes:
+      - ./songo-bi-websocket:/home/songo-websocket
+      - /home/songo-websocket/node_modules
+      - /home/songo-websocket/dist
+      - ./docker/songo-websocket/config.json:/home/songo-websocket/config.json
+    environment:
+      - PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_SSL=false
+
+  songo-init:
+    build:
+      <<: *common-build
+    container_name: songo_init
+    command: ["/app/docker/docker-init.sh"]
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+    user: *songo-user
+    volumes: *songo-volumes
+    healthcheck:
+      disable: true
+
+  songo-frontend:
+    build:
+      context: .
+      target: songo-frontend
+      args:
+        DEV_MODE: "true"
+        BUILD_TRANSLATIONS: ${BUILD_TRANSLATIONS:-false}
+    environment:
+      BUILD_SONGO_FRONTEND_IN_DOCKER: true
+      NPM_RUN_PRUNE: false
+      songo: "http://songo-bi:8088"
+    ports:
+      - "127.0.0.1:9000:9000"
+    container_name: songo_frontend
+    command: ["/app/docker/docker-frontend.sh"]
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    volumes: *songo-volumes
+
+  songo-worker:
+    build:
+      <<: *common-build
+    container_name: songo_worker
+    command: ["/app/docker/docker-bootstrap.sh", "worker"]
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    environment:
+      CELERYD_CONCURRENCY: 2
+    restart: unless-stopped
+    depends_on:
+      songo-init:
+        condition: service_completed_successfully
+    user: *songo-user
+    volumes: *songo-volumes
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A songo_bi.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME"]
+
+  songo-worker-beat:
+    build:
+      <<: *common-build
+    container_name: songo_worker_beat
+    command: ["/app/docker/docker-bootstrap.sh", "beat"]
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    restart: unless-stopped
+    depends_on:
+      - songo-worker
+    user: *songo-user
+    volumes: *songo-volumes
+    healthcheck:
+      disable: true
+
+  # AI Chatbot Service
+  songo-chatbot:
+    build:
+      context: ./songo-bi-chatbot
+    container_name: songo_chatbot
+    ports:
+      - "8089:8089"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SONGO_API_URL=http://songo-bi:8088
+    depends_on:
+      - songo-bi
+      - redis
+    volumes:
+      - ./songo-bi-chatbot:/app
+    restart: unless-stopped
+
+volumes:
+  songo_home:
+    external: false
+  db_home:
+    external: false
+  redis:
+    external: false
