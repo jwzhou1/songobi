@@ -26,7 +26,7 @@ class ChatSession(Model, AuditMixin):
     
     id = Column(Integer, primary_key=True)
     session_id = Column(String(64), unique=True, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("ab_user.id"), nullable=False)
     
     # Session metadata
     title = Column(String(250))
@@ -48,7 +48,7 @@ class ChatSession(Model, AuditMixin):
     ended_at = Column(DateTime)
     
     # Relationships
-    user = relationship("User", back_populates="chat_sessions")
+    # Note: user relationship will be handled by Flask-AppBuilder's User model
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
     insights = relationship("AIInsight", back_populates="session")
     

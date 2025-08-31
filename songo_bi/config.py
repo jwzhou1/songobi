@@ -18,14 +18,11 @@ class Config:
     
     # Database settings
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or \
-        "postgresql://songo:songo_password@localhost:5432/songo_bi"
+        "sqlite:///songo_bi.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,
-        "pool_recycle": 300,
-        "pool_timeout": 20,
-        "max_overflow": 0,
-    }
+
+    # Engine options - simplified for SQLite
+    SQLALCHEMY_ENGINE_OPTIONS = {}
     
     # Redis settings
     REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")

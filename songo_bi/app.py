@@ -110,22 +110,18 @@ def register_blueprints(app: Flask) -> None:
 
 def init_appbuilder(app: Flask) -> None:
     """Initialize Flask-AppBuilder."""
-    
-    from songo_bi.security import SongoSecurityManager
-    
-    # Initialize AppBuilder with custom security manager
-    appbuilder = AppBuilder(
-        app,
-        db.session,
-        security_manager_class=SongoSecurityManager,
-        base_template="songo_bi/base.html",
-        indexview=None,
-    )
-    
-    # Import views to register them
-    from songo_bi import views  # noqa: F401
-    
-    app.appbuilder = appbuilder
+
+    with app.app_context():
+        # Initialize AppBuilder with default security manager first
+        appbuilder = AppBuilder(app, db.session)
+
+        # Create all database tables after AppBuilder is initialized
+        db.create_all()
+
+        # Import views to register them
+        from songo_bi import views  # noqa: F401
+
+        app.appbuilder = appbuilder
 
 
 def configure_security(app: Flask) -> None:

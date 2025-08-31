@@ -19,30 +19,8 @@ from sqlalchemy.orm import relationship
 from songo_bi.extensions import db
 
 
-class User(Model, AuditMixin):
-    """User model extending Flask-AppBuilder's User."""
-    
-    __tablename__ = "users"
-    
-    id = Column(Integer, primary_key=True)
-    username = Column(String(64), unique=True, nullable=False)
-    email = Column(String(120), unique=True, nullable=False)
-    first_name = Column(String(64), nullable=False)
-    last_name = Column(String(64), nullable=False)
-    active = Column(Boolean, default=True)
-    
-    # Additional Songo BI specific fields
-    preferences = Column(JSON, default=dict)
-    last_login = Column(DateTime)
-    login_count = Column(Integer, default=0)
-    
-    # Relationships
-    dashboards = relationship("Dashboard", back_populates="owner")
-    queries = relationship("Query", back_populates="user")
-    chat_sessions = relationship("ChatSession", back_populates="user")
-    
-    def __repr__(self):
-        return f"<User {self.username}>"
+# Note: Using Flask-AppBuilder's built-in User model instead of custom User model
+# to avoid conflicts. Additional user fields can be added through user profile extensions.
 
 
 class Database(Model, AuditMixin):
@@ -97,18 +75,18 @@ class Table(Model, AuditMixin):
     
     # Relationships
     database = relationship("Database", back_populates="tables")
-    columns = relationship("Column", back_populates="table")
+    columns = relationship("TableColumn", back_populates="table")
     slices = relationship("Slice", back_populates="datasource")
     
     def __repr__(self):
         return f"<Table {self.table_name}>"
 
 
-class Column(Model, AuditMixin):
+class TableColumn(Model, AuditMixin):
     """Column model for table columns."""
-    
+
     __tablename__ = "table_columns"
-    
+
     id = Column(Integer, primary_key=True)
     column_name = Column(String(255), nullable=False)
     verbose_name = Column(String(1024))
@@ -121,12 +99,12 @@ class Column(Model, AuditMixin):
     table_id = Column(Integer, ForeignKey("tables.id"), nullable=False)
     database_expression = Column(Text)
     python_date_format = Column(String(255))
-    
+
     # Relationships
     table = relationship("Table", back_populates="columns")
-    
+
     def __repr__(self):
-        return f"<Column {self.column_name}>"
+        return f"<TableColumn {self.column_name}>"
 
 
 class Query(Model, AuditMixin):
@@ -138,7 +116,7 @@ class Query(Model, AuditMixin):
     client_id = Column(String(11), unique=True, nullable=False)
     database_id = Column(Integer, ForeignKey("databases.id"), nullable=False)
     tmp_table_name = Column(String(256))
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("ab_user.id"))
     status = Column(String(16), default="success")
     error_message = Column(Text)
     results_key = Column(String(64))
@@ -155,7 +133,7 @@ class Query(Model, AuditMixin):
     
     # Relationships
     database = relationship("Database", back_populates="queries")
-    user = relationship("User", back_populates="queries")
+    # Note: user relationship will be handled by Flask-AppBuilder's User model
     
     def __repr__(self):
         return f"<Query {self.id}>"

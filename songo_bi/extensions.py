@@ -6,7 +6,7 @@ Flask extensions initialization for Songo BI.
 """
 
 from celery import Celery
-from flask_appbuilder.security.sqla import SecurityManager
+from flask_appbuilder.security.sqla.manager import SecurityManager
 from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
 
@@ -16,8 +16,8 @@ db = SQLAlchemy()
 # Cache manager
 cache_manager = Cache()
 
-# Security manager
-security_manager = SecurityManager()
+# Security manager (will be initialized in app factory)
+security_manager = None
 
 # Celery for background tasks
 celery_app = Celery("songo_bi")

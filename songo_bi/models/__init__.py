@@ -12,26 +12,23 @@ from songo_bi.models.chatbot import *
 
 __all__ = [
     # Core models
-    "User",
-    "Role",
-    "Permission",
     "Database",
     "Table",
-    "Column",
+    "TableColumn",
     "Query",
-    
+
     # Dashboard models
     "Dashboard",
     "Slice",
     "Chart",
     "Filter",
-    
+
     # NetSuite models
     "NetSuiteConnection",
     "NetSuiteQuery",
     "NetSuiteDataSource",
     "NetSuiteRefreshLog",
-    
+
     # Chatbot models
     "ChatSession",
     "ChatMessage",

@@ -16,7 +16,7 @@ from flask_appbuilder.security.decorators import has_access_api
 from marshmallow import Schema, fields
 
 from songo_bi.extensions import db
-from songo_bi.models.core import Database, Table, Query
+from songo_bi.models.core import Database, Table, TableColumn, Query
 from songo_bi.models.dashboard import Dashboard, Slice
 from songo_bi.models.netsuite import NetSuiteConnection, NetSuiteQuery
 from songo_bi.models.chatbot import ChatSession, ChatMessage

@@ -18,6 +18,12 @@ from sqlalchemy.orm import relationship
 
 from songo_bi.extensions import db
 
+# Note: Association table temporarily commented out to resolve startup issues
+# dashboard_slices = db.Table('dashboard_slices',
+#     Column('dashboard_id', Integer, ForeignKey('dashboards.id'), primary_key=True),
+#     Column('slice_id', Integer, ForeignKey('slices.id'), primary_key=True)
+# )
+
 
 class Dashboard(Model, AuditMixin):
     """Dashboard model for organizing charts and visualizations."""
@@ -33,7 +39,7 @@ class Dashboard(Model, AuditMixin):
     slug = Column(String(255), unique=True)
     
     # Ownership and permissions
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner_id = Column(Integer, ForeignKey("ab_user.id"))
     published = Column(Boolean, default=False)
     is_featured = Column(Boolean, default=False)
     
@@ -47,8 +53,8 @@ class Dashboard(Model, AuditMixin):
     ai_confidence = Column(Float)  # AI confidence score
     
     # Relationships
-    owner = relationship("User", back_populates="dashboards")
-    slices = relationship("Slice", secondary="dashboard_slices", back_populates="dashboards")
+    # Note: owner relationship will be handled by Flask-AppBuilder's User model
+    # slices = relationship("Slice", secondary=dashboard_slices, back_populates="dashboards")
     
     def __repr__(self):
         return f"<Dashboard {self.dashboard_title}>"
@@ -82,7 +88,7 @@ class Slice(Model, AuditMixin):
     
     # Relationships
     datasource = relationship("Table", back_populates="slices")
-    dashboards = relationship("Dashboard", secondary="dashboard_slices", back_populates="slices")
+    # dashboards = relationship("Dashboard", secondary=dashboard_slices, back_populates="slices")
     
     def __repr__(self):
         return f"<Slice {self.slice_name}>"
@@ -155,12 +161,4 @@ class Filter(Model, AuditMixin):
         return f"<Filter {self.filter_name}>"
 
 
-# Association table for dashboard-slice many-to-many relationship
-dashboard_slices = db.Table(
-    "dashboard_slices",
-    Column("id", Integer, primary_key=True),
-    Column("dashboard_id", Integer, ForeignKey("dashboards.id")),
-    Column("slice_id", Integer, ForeignKey("slices.id")),
-    Column("created_on", DateTime, default=datetime.utcnow),
-    Column("changed_on", DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
-)
+# Note: Association table already defined above
